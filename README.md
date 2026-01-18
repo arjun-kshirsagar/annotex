@@ -1,6 +1,8 @@
-# Annotation Service
+# Annotex
 
-A production-grade Python FastAPI backend service for evaluating subjective exam answers with visual annotations (green/yellow/red markings).
+A production-grade Python FastAPI backend for evaluating subjective exam answers with visual annotations (green/yellow/red markings).
+
+> See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed project structure and design decisions.
 
 ## Features
 
@@ -219,40 +221,26 @@ pytest tests/test_api/test_evaluation.py -v
 ## Project Structure
 
 ```
-annotation-service/
+annotex/
 ├── app/
+│   ├── main.py                  # Single entry point
 │   ├── api/
 │   │   ├── deps.py              # Dependency injection
-│   │   └── routes/
-│   │       ├── evaluation.py    # Evaluation endpoints
-│   │       ├── model_answers.py # Model answer CRUD
-│   │       └── submissions.py   # Annotated sheet download
-│   ├── services/
-│   │   ├── ocr_service.py       # OCR abstraction
-│   │   ├── evaluation_engine.py # Semantic similarity
-│   │   ├── annotation_renderer.py # PDF annotation
-│   │   ├── segmentation_service.py # Question segmentation
-│   │   └── storage_service.py   # File storage
-│   ├── workers/
-│   │   ├── celery_app.py        # Celery configuration
-│   │   └── tasks.py             # Background tasks
-│   ├── models/
-│   │   └── database.py          # SQLAlchemy models
-│   ├── schemas/
-│   │   └── schemas.py           # Pydantic schemas
-│   ├── core/
-│   │   ├── config.py            # Settings
-│   │   └── logging.py           # Structured logging
-│   ├── db/
-│   │   ├── base.py              # SQLAlchemy base
-│   │   └── session.py           # Session factory
-│   └── main.py                  # FastAPI app
+│   │   └── routes/              # API endpoints
+│   ├── services/                # Business logic
+│   ├── workers/                 # Celery background tasks
+│   ├── models/                  # SQLAlchemy ORM models
+│   ├── schemas/                 # Pydantic schemas
+│   ├── core/                    # Config, logging
+│   └── db/                      # Database session
 ├── alembic/                     # Database migrations
 ├── tests/                       # Test suite
 ├── docker-compose.yml
 ├── Dockerfile
 └── requirements.txt
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed structure and future roadmap.
 
 ## License
 
