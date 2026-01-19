@@ -1,24 +1,54 @@
 version: '3.8'
 
+# =============================================================================
+# Annotex - Docker Compose Configuration
+# =============================================================================
+# Services: API, Celery Worker, PostgreSQL, Redis
+#
+# Quick Start:
+#   docker-compose up -d
+#   docker-compose --profile migrate run migrate
+#
+# For Google Vision OCR, set one of:
+#   - GOOGLE_CLOUD_CREDENTIALS_PATH (mount JSON file)
+#   - GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 (base64 encoded key)
+# =============================================================================
+
 services:
+  # ===========================================================================
+  # FastAPI Application
+  # ===========================================================================
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: annotation-api
+    container_name: annotex-api
     ports:
       - "8000:8000"
     environment:
+      # Database
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/annotation_db
+      # Redis
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      # Storage
       - STORAGE_BASE_PATH=/app/storage
-      - OCR_PROVIDER=mock
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=json
+      # OCR Provider: 'mock' for testing, 'google_vision' for production
+      - OCR_PROVIDER=${OCR_PROVIDER:-mock}
+      # Google Credentials (Option 1: file path - requires volume mount below)
+      - GOOGLE_CLOUD_CREDENTIALS_PATH=${GOOGLE_CLOUD_CREDENTIALS_PATH:-}
+      # Google Credentials (Option 2: base64 encoded - no file needed)
+      - GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64:-}
+      # Evaluation thresholds
+      - CORRECT_THRESHOLD=${CORRECT_THRESHOLD:-0.75}
+      - PARTIAL_THRESHOLD=${PARTIAL_THRESHOLD:-0.50}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
     volumes:
       - storage_data:/app/storage
+      # Mount Google credentials file (optional - only needed if using file path method)
       - ./google-credentials.json:/app/google-credentials.json:ro
     depends_on:
       db:
@@ -32,21 +62,35 @@ services:
       retries: 3
       start_period: 10s
 
+  # ===========================================================================
+  # Celery Worker (Background Jobs)
+  # ===========================================================================
   celery-worker:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: annotation-worker
+    container_name: annotex-worker
     command: celery -A app.workers.celery_app worker --loglevel=info
     environment:
+      # Database
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/annotation_db
+      # Redis
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      # Storage
       - STORAGE_BASE_PATH=/app/storage
-      - OCR_PROVIDER=mock
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=json
+      # OCR Provider
+      - OCR_PROVIDER=${OCR_PROVIDER:-mock}
+      # Google Credentials (same options as API)
+      - GOOGLE_CLOUD_CREDENTIALS_PATH=${GOOGLE_CLOUD_CREDENTIALS_PATH:-}
+      - GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64:-}
+      # Evaluation thresholds
+      - CORRECT_THRESHOLD=${CORRECT_THRESHOLD:-0.75}
+      - PARTIAL_THRESHOLD=${PARTIAL_THRESHOLD:-0.50}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
     volumes:
       - storage_data:/app/storage
       - ./google-credentials.json:/app/google-credentials.json:ro
@@ -56,9 +100,12 @@ services:
       redis:
         condition: service_healthy
 
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
   db:
     image: postgres:15-alpine
-    container_name: annotation-db
+    container_name: annotex-db
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -73,9 +120,12 @@ services:
       timeout: 5s
       retries: 5
 
+  # ===========================================================================
+  # Redis (Celery Broker)
+  # ===========================================================================
   redis:
     image: redis:7-alpine
-    container_name: annotation-redis
+    container_name: annotex-redis
     ports:
       - "6379:6379"
     volumes:
@@ -86,12 +136,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # Database migrations
+  # ===========================================================================
+  # Database Migrations (run with --profile migrate)
+  # ===========================================================================
   migrate:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: annotation-migrate
+    container_name: annotex-migrate
     command: alembic upgrade head
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/annotation_db

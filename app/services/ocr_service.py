@@ -1,5 +1,8 @@
 """OCR service abstraction with Google Vision implementation."""
-import io
+import base64
+import json
+import os
+import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -155,25 +158,79 @@ class OCRProvider(ABC):
 
 
 class GoogleVisionOCR(OCRProvider):
-    """Google Cloud Vision OCR implementation."""
+    """Google Cloud Vision OCR implementation.
+
+    Supports three credential methods (in priority order):
+    1. Base64 encoded service account key (GOOGLE_SERVICE_ACCOUNT_KEY_BASE64)
+    2. Path to service account JSON file (GOOGLE_CLOUD_CREDENTIALS_PATH)
+    3. Standard Google env var (GOOGLE_APPLICATION_CREDENTIALS)
+    """
 
     def __init__(self):
         """Initialize Google Vision OCR client."""
-        settings = get_settings()
         self._client = None
-        self._credentials_path = settings.google_cloud_credentials_path
+        self._temp_credentials_file = None
 
     def _get_client(self):
-        """Lazy load the Vision client."""
+        """Lazy load the Vision client with appropriate credentials."""
         if self._client is None:
             from google.cloud import vision
+            from google.oauth2 import service_account
 
-            if self._credentials_path:
-                import os
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+            settings = get_settings()
+            credentials = None
 
-            self._client = vision.ImageAnnotatorClient()
+            # Priority 1: Base64 encoded service account key
+            if settings.google_service_account_key_base64:
+                try:
+                    key_json = base64.b64decode(
+                        settings.google_service_account_key_base64
+                    ).decode("utf-8")
+                    key_dict = json.loads(key_json)
+                    credentials = service_account.Credentials.from_service_account_info(
+                        key_dict
+                    )
+                    logger.info("Using base64 encoded Google credentials")
+                except Exception as e:
+                    logger.error(
+                        "Failed to decode base64 credentials",
+                        error=str(e),
+                    )
+                    raise ValueError(
+                        "Invalid GOOGLE_SERVICE_ACCOUNT_KEY_BASE64"
+                    ) from e
+
+            # Priority 2: Credentials file path
+            elif settings.get_google_credentials_path():
+                credentials_path = settings.get_google_credentials_path()
+                if not os.path.exists(credentials_path):
+                    raise FileNotFoundError(
+                        f"Google credentials file not found: {credentials_path}"
+                    )
+                credentials = service_account.Credentials.from_service_account_file(
+                    credentials_path
+                )
+                logger.info(
+                    "Using Google credentials from file",
+                    path=credentials_path,
+                )
+
+            # Priority 3: Default credentials (ADC)
+            else:
+                # Let Google SDK use Application Default Credentials
+                logger.info("Using Google Application Default Credentials")
+
+            if credentials:
+                self._client = vision.ImageAnnotatorClient(credentials=credentials)
+            else:
+                self._client = vision.ImageAnnotatorClient()
+
         return self._client
+
+    def __del__(self):
+        """Clean up temporary credentials file if created."""
+        if self._temp_credentials_file and os.path.exists(self._temp_credentials_file):
+            os.remove(self._temp_credentials_file)
 
     async def extract_text(self, file_path: str) -> OCRResult:
         """Extract text from a PDF or image file using Google Vision."""
