@@ -1,4 +1,5 @@
 """Segmentation service tests."""
+
 import pytest
 
 from app.services.ocr_service import BoundingBox, OCRBlock, OCRPage, OCRResult
@@ -104,7 +105,9 @@ class TestSegmentationService:
                     bounding_box=BoundingBox(page=0, x=50, y=100, width=400, height=30),
                 ),
             ]
-            ocr_result = OCRResult(pages=[OCRPage(page_number=0, width=612, height=792, blocks=blocks)])
+            ocr_result = OCRResult(
+                pages=[OCRPage(page_number=0, width=612, height=792, blocks=blocks)]
+            )
 
             segments = service.segment_by_question(ocr_result)
             assert len(segments) >= 1, f"Failed to recognize format: {fmt}"

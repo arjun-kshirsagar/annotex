@@ -1,6 +1,7 @@
 """Background evaluation tasks."""
+
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from celery import Task
 from sqlalchemy import select
@@ -19,7 +20,7 @@ from app.models.database import (
 )
 from app.services.annotation_renderer import AnnotationRenderer, AnnotationSegment
 from app.services.evaluation_engine import EvaluationEngine
-from app.services.ocr_service import BoundingBox, OCRResult, get_ocr_provider
+from app.services.ocr_service import get_ocr_provider
 from app.services.segmentation_service import SegmentationService
 from app.services.storage_service import get_storage_backend
 from app.workers.celery_app import celery_app
@@ -137,6 +138,7 @@ def process_evaluation_task(self, job_id: str) -> dict:
 
         # Step 2: OCR student answer sheet
         import asyncio
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -271,7 +273,7 @@ def process_evaluation_task(self, job_id: str) -> dict:
 
         # Step 8: Update job status
         job.status = JobStatus.COMPLETED
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(tz=UTC)
         db.commit()
 
         logger.info(
@@ -303,7 +305,7 @@ def process_evaluation_task(self, job_id: str) -> dict:
             db.rollback()
 
         # Retry with exponential backoff
-        raise self.retry(exc=e, countdown=30 * (2 ** self.request.retries))
+        raise self.retry(exc=e, countdown=30 * (2**self.request.retries)) from e
 
     finally:
         db.close()

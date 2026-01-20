@@ -1,4 +1,5 @@
 """Pydantic request/response schemas."""
+
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -75,7 +76,8 @@ class EvaluationJobCreate(BaseModel):
     submission_id: str = Field(..., min_length=1, max_length=255)
     exam_id: str = Field(..., min_length=1, max_length=255)
     model_answer_id: uuid.UUID | None = Field(
-        default=None, description="Optional model answer ID. If not provided, uses active model answer for exam."
+        default=None,
+        description="Optional model answer ID. If not provided, uses active model answer for exam.",
     )
 
 

@@ -1,4 +1,5 @@
 """Services module."""
+
 from app.services.annotation_renderer import AnnotationRenderer
 from app.services.evaluation_engine import EvaluationEngine
 from app.services.ocr_service import GoogleVisionOCR, MockOCR, OCRProvider

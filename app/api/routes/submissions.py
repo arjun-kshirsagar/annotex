@@ -1,4 +1,5 @@
 """Submission-related endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -55,7 +56,7 @@ async def download_annotated_sheet(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Annotated file not found in storage",
-        )
+        ) from None
 
     # Verify checksum
     computed_checksum = storage.compute_checksum(file_content)

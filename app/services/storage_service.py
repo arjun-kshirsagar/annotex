@@ -1,7 +1,7 @@
 """File storage abstraction."""
+
 import hashlib
 import os
-import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import BinaryIO
@@ -156,8 +156,7 @@ class LocalStorage(StorageBackend):
         path = self._get_path(exam_id, submission_id, filename)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, "wb") as f:
-            shutil.copyfileobj(file, f)
+        path.write_bytes(file.read())
 
         logger.info(
             "Saved file to local storage",
@@ -178,8 +177,7 @@ class LocalStorage(StorageBackend):
         path = self._get_path(exam_id, submission_id, filename)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, "wb") as f:
-            f.write(data)
+        path.write_bytes(data)
 
         logger.info(
             "Saved bytes to local storage",
@@ -199,8 +197,7 @@ class LocalStorage(StorageBackend):
         if not full_path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
-        with open(full_path, "rb") as f:
-            return f.read()
+        return full_path.read_bytes()
 
     async def exists(self, path: str) -> bool:
         """Check if file exists in local storage."""

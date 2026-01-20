@@ -1,4 +1,5 @@
 """Question segmentation logic using keyword detection."""
+
 import re
 from dataclasses import dataclass, field
 
@@ -98,7 +99,9 @@ class SegmentationService:
         segments = []
         for i, boundary in enumerate(boundaries):
             start_idx = boundary["block_index"]
-            end_idx = boundaries[i + 1]["block_index"] if i + 1 < len(boundaries) else len(all_blocks)
+            end_idx = (
+                boundaries[i + 1]["block_index"] if i + 1 < len(boundaries) else len(all_blocks)
+            )
 
             segment_blocks = all_blocks[start_idx:end_idx]
             if segment_blocks:
@@ -135,11 +138,13 @@ class SegmentationService:
                 if match:
                     try:
                         question_num = int(match.group(1))
-                        boundaries.append({
-                            "block_index": idx,
-                            "question_number": question_num,
-                            "matched_text": match.group(0),
-                        })
+                        boundaries.append(
+                            {
+                                "block_index": idx,
+                                "question_number": question_num,
+                                "matched_text": match.group(0),
+                            }
+                        )
                         break
                     except (ValueError, IndexError):
                         continue
@@ -214,7 +219,4 @@ class SegmentationService:
             Dictionary with question numbers as keys and segment data as values
         """
         segments = self.segment_by_question(ocr_result)
-        return {
-            str(s.question_number): s.to_dict()
-            for s in segments
-        }
+        return {str(s.question_number): s.to_dict() for s in segments}

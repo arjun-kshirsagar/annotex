@@ -1,4 +1,5 @@
 """Evaluation job endpoints."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -11,14 +12,12 @@ from app.core.logging import get_logger
 from app.models.database import (
     AnswerSegment,
     EvaluationJob,
-    EvaluationResult,
     JobStatus,
     ModelAnswer,
 )
 from app.schemas.schemas import (
     AnswerSegmentResponse,
     BoundingBox,
-    EvaluationJobCreate,
     EvaluationJobResponse,
     EvaluationResultResponse,
     JobResultsResponse,
@@ -31,7 +30,9 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.post("/evaluate", response_model=EvaluationJobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/evaluate", response_model=EvaluationJobResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def submit_evaluation(
     submission_id: str,
     exam_id: str,
@@ -65,9 +66,7 @@ async def submit_evaluation(
 
     # Get model answer
     if model_answer_id:
-        result = await db.execute(
-            select(ModelAnswer).where(ModelAnswer.id == model_answer_id)
-        )
+        result = await db.execute(select(ModelAnswer).where(ModelAnswer.id == model_answer_id))
         model_answer = result.scalar_one_or_none()
         if not model_answer:
             raise HTTPException(
@@ -79,7 +78,7 @@ async def submit_evaluation(
         result = await db.execute(
             select(ModelAnswer)
             .where(ModelAnswer.exam_id == exam_id)
-            .where(ModelAnswer.is_active == True)
+            .where(ModelAnswer.is_active.is_(True))
         )
         model_answer = result.scalar_one_or_none()
         if not model_answer:
@@ -129,9 +128,7 @@ async def get_job_status(
     db: AsyncSession = Depends(get_db),
 ) -> EvaluationJob:
     """Get evaluation job status."""
-    result = await db.execute(
-        select(EvaluationJob).where(EvaluationJob.id == job_id)
-    )
+    result = await db.execute(select(EvaluationJob).where(EvaluationJob.id == job_id))
     job = result.scalar_one_or_none()
 
     if not job:

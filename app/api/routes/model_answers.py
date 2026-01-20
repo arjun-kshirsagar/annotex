@@ -1,4 +1,5 @@
 """Model answer CRUD endpoints."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, get_ocr, get_segmentation_service, get_storage
 from app.core.logging import get_logger
 from app.models.database import ModelAnswer
-from app.schemas.schemas import ModelAnswerCreate, ModelAnswerListResponse, ModelAnswerResponse
+from app.schemas.schemas import ModelAnswerListResponse, ModelAnswerResponse
 from app.services.ocr_service import OCRProvider
 from app.services.segmentation_service import SegmentationService
 from app.services.storage_service import StorageBackend
@@ -17,7 +18,9 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.post("/model-answers", response_model=ModelAnswerResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/model-answers", response_model=ModelAnswerResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_model_answer(
     exam_id: str,
     file: UploadFile = File(...),
@@ -96,9 +99,7 @@ async def get_model_answer(
     db: AsyncSession = Depends(get_db),
 ) -> ModelAnswer:
     """Get model answer metadata by ID."""
-    result = await db.execute(
-        select(ModelAnswer).where(ModelAnswer.id == model_answer_id)
-    )
+    result = await db.execute(select(ModelAnswer).where(ModelAnswer.id == model_answer_id))
     model_answer = result.scalar_one_or_none()
 
     if not model_answer:
@@ -139,9 +140,7 @@ async def activate_model_answer(
     Deactivates any currently active version for the same exam.
     """
     # Get the model answer
-    result = await db.execute(
-        select(ModelAnswer).where(ModelAnswer.id == model_answer_id)
-    )
+    result = await db.execute(select(ModelAnswer).where(ModelAnswer.id == model_answer_id))
     model_answer = result.scalar_one_or_none()
 
     if not model_answer:
@@ -154,7 +153,7 @@ async def activate_model_answer(
     result = await db.execute(
         select(ModelAnswer)
         .where(ModelAnswer.exam_id == model_answer.exam_id)
-        .where(ModelAnswer.is_active == True)
+        .where(ModelAnswer.is_active.is_(True))
     )
     active_answers = result.scalars().all()
 
@@ -184,7 +183,7 @@ async def get_active_model_answer(
     result = await db.execute(
         select(ModelAnswer)
         .where(ModelAnswer.exam_id == exam_id)
-        .where(ModelAnswer.is_active == True)
+        .where(ModelAnswer.is_active.is_(True))
     )
     model_answer = result.scalar_one_or_none()
 

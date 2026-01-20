@@ -44,9 +44,7 @@ class ModelAnswer(Base):
 
     __tablename__ = "model_answers"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     exam_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
@@ -70,12 +68,8 @@ class EvaluationJob(Base):
 
     __tablename__ = "evaluation_jobs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    submission_id: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True, index=True
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    submission_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     exam_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     model_answer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("model_answers.id"), nullable=False
@@ -100,9 +94,7 @@ class EvaluationJob(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     model_answer: Mapped["ModelAnswer"] = relationship(
@@ -121,9 +113,7 @@ class AnswerSegment(Base):
 
     __tablename__ = "answer_segments"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("evaluation_jobs.id"), nullable=False
     )
@@ -135,9 +125,7 @@ class AnswerSegment(Base):
     )
 
     # Relationships
-    job: Mapped["EvaluationJob"] = relationship(
-        "EvaluationJob", back_populates="answer_segments"
-    )
+    job: Mapped["EvaluationJob"] = relationship("EvaluationJob", back_populates="answer_segments")
     evaluation_result: Mapped["EvaluationResult | None"] = relationship(
         "EvaluationResult", back_populates="segment", uselist=False
     )
@@ -148,9 +136,7 @@ class EvaluationResult(Base):
 
     __tablename__ = "evaluation_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     segment_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("answer_segments.id"),
@@ -183,9 +169,7 @@ class AnnotatedFile(Base):
 
     __tablename__ = "annotated_files"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("evaluation_jobs.id"),
@@ -201,6 +185,4 @@ class AnnotatedFile(Base):
     )
 
     # Relationships
-    job: Mapped["EvaluationJob"] = relationship(
-        "EvaluationJob", back_populates="annotated_file"
-    )
+    job: Mapped["EvaluationJob"] = relationship("EvaluationJob", back_populates="annotated_file")

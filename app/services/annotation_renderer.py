@@ -1,10 +1,10 @@
 """PDF annotation rendering service."""
+
 import io
 from dataclasses import dataclass
-from pathlib import Path
 
 import fitz  # PyMuPDF
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from app.core.logging import get_logger
 from app.services.evaluation_engine import Verdict
@@ -15,9 +15,9 @@ logger = get_logger(__name__)
 
 # Colors for annotations (RGBA)
 ANNOTATION_COLORS = {
-    Verdict.CORRECT: (0, 200, 0, 100),     # Green with transparency
-    Verdict.PARTIAL: (255, 200, 0, 100),   # Yellow with transparency
-    Verdict.INCORRECT: (255, 0, 0, 100),   # Red with transparency
+    Verdict.CORRECT: (0, 200, 0, 100),  # Green with transparency
+    Verdict.PARTIAL: (255, 200, 0, 100),  # Yellow with transparency
+    Verdict.INCORRECT: (255, 0, 0, 100),  # Red with transparency
 }
 
 # Border colors (RGB)

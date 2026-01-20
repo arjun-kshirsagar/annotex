@@ -3,7 +3,6 @@
 import base64
 import json
 import os
-import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -182,13 +181,11 @@ class GoogleVisionOCR(OCRProvider):
             # Priority 1: Base64 encoded service account key
             if settings.google_service_account_key_base64:
                 try:
-                    key_json = base64.b64decode(
-                        settings.google_service_account_key_base64
-                    ).decode("utf-8")
-                    key_dict = json.loads(key_json)
-                    credentials = service_account.Credentials.from_service_account_info(
-                        key_dict
+                    key_json = base64.b64decode(settings.google_service_account_key_base64).decode(
+                        "utf-8"
                     )
+                    key_dict = json.loads(key_json)
+                    credentials = service_account.Credentials.from_service_account_info(key_dict)
                     logger.info("Using base64 encoded Google credentials")
                 except Exception as e:
                     logger.error(
@@ -232,14 +229,11 @@ class GoogleVisionOCR(OCRProvider):
     async def extract_text(self, file_path: str) -> OCRResult:
         """Extract text from a PDF or image file using Google Vision."""
         path = Path(file_path)
-        with open(path, "rb") as f:
-            data = f.read()
+        data = path.read_bytes()
         return await self.extract_text_from_bytes(data, path.name)
 
     async def extract_text_from_bytes(self, data: bytes, filename: str) -> OCRResult:
         """Extract text from file bytes using Google Vision."""
-        from google.cloud import vision
-
         client = self._get_client()
         is_pdf = filename.lower().endswith(".pdf")
 
@@ -270,9 +264,7 @@ class GoogleVisionOCR(OCRProvider):
         for resp in response.responses:
             for i, page_response in enumerate(resp.responses):
                 if page_response.full_text_annotation:
-                    ocr_page = self._parse_page_annotation(
-                        page_response.full_text_annotation, i
-                    )
+                    ocr_page = self._parse_page_annotation(page_response.full_text_annotation, i)
                     pages.append(ocr_page)
 
         logger.info(
@@ -289,9 +281,7 @@ class GoogleVisionOCR(OCRProvider):
         response = client.document_text_detection(image=image)
 
         if response.full_text_annotation:
-            ocr_page = self._parse_page_annotation(
-                response.full_text_annotation, page_number
-            )
+            ocr_page = self._parse_page_annotation(response.full_text_annotation, page_number)
             return OCRResult(pages=[ocr_page])
 
         return OCRResult(pages=[])
@@ -322,9 +312,7 @@ class GoogleVisionOCR(OCRProvider):
                 y_coords = [v.y for v in vertices if v.y is not None]
 
                 if not x_coords or not y_coords:
-                    logger.warning(
-                        "Skipping block with no vertices/coordinates", text=text[:50]
-                    )
+                    logger.warning("Skipping block with no vertices/coordinates", text=text[:50])
                     continue
 
                 bbox = BoundingBox(
@@ -378,16 +366,12 @@ class MockOCR(OCRProvider):
                     blocks=[
                         OCRBlock(
                             text="Q1. Sample question answer text for testing.",
-                            bounding_box=BoundingBox(
-                                page=0, x=50, y=100, width=500, height=50
-                            ),
+                            bounding_box=BoundingBox(page=0, x=50, y=100, width=500, height=50),
                             confidence=0.95,
                         ),
                         OCRBlock(
                             text="Q2. Another sample answer text.",
-                            bounding_box=BoundingBox(
-                                page=0, x=50, y=200, width=500, height=50
-                            ),
+                            bounding_box=BoundingBox(page=0, x=50, y=200, width=500, height=50),
                             confidence=0.92,
                         ),
                     ],

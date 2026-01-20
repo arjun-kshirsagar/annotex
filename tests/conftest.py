@@ -1,25 +1,24 @@
 """Test configuration and fixtures."""
+
 import asyncio
 import os
+import tempfile
 import uuid
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
 
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Session, sessionmaker
 
 # Set test environment
 os.environ["OCR_PROVIDER"] = "mock"
-os.environ["STORAGE_BASE_PATH"] = "/tmp/test_storage"
+os.environ["STORAGE_BASE_PATH"] = tempfile.mkdtemp(prefix="annotex_test_")
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test.db"
 
 from app.api.deps import get_db, get_ocr, get_storage
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.db.base import Base
 from app.main import app
 from app.services.ocr_service import MockOCR
@@ -41,7 +40,7 @@ def test_settings() -> Settings:
         database_url="sqlite+aiosqlite:///./test.db",
         ocr_provider="mock",
         storage_backend="local",
-        storage_base_path="/tmp/test_storage",
+        storage_base_path=tempfile.mkdtemp(prefix="annotex_test_"),
     )
 
 

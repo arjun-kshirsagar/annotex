@@ -1,4 +1,5 @@
 """Dependency injection for API routes."""
+
 from collections.abc import AsyncGenerator
 from functools import lru_cache
 

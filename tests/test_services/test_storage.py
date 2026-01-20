@@ -1,4 +1,5 @@
 """Storage service tests."""
+
 import pytest
 
 from app.services.storage_service import LocalStorage

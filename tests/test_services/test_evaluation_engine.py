@@ -1,4 +1,5 @@
 """Evaluation engine tests."""
+
 import pytest
 
 from app.services.evaluation_engine import EvaluationEngine, Verdict

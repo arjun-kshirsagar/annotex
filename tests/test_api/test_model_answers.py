@@ -1,4 +1,5 @@
 """Model answer endpoint tests."""
+
 import io
 import uuid
 
@@ -7,7 +8,9 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_create_model_answer(client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str):
+async def test_create_model_answer(
+    client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str
+):
     """Test creating a new model answer."""
     files = {"file": ("model_answer.pdf", io.BytesIO(sample_pdf_bytes), "application/pdf")}
     response = await client.post(
@@ -65,7 +68,9 @@ async def test_get_model_answer_not_found(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_list_model_answers_for_exam(client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str):
+async def test_list_model_answers_for_exam(
+    client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str
+):
     """Test listing model answers for an exam."""
     # Create two versions
     for _ in range(2):
@@ -85,7 +90,9 @@ async def test_list_model_answers_for_exam(client: AsyncClient, sample_pdf_bytes
 
 
 @pytest.mark.asyncio
-async def test_activate_model_answer(client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str):
+async def test_activate_model_answer(
+    client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str
+):
     """Test activating a model answer."""
     # Create model answer
     files = {"file": ("model_answer.pdf", io.BytesIO(sample_pdf_bytes), "application/pdf")}
@@ -104,7 +111,9 @@ async def test_activate_model_answer(client: AsyncClient, sample_pdf_bytes: byte
 
 
 @pytest.mark.asyncio
-async def test_get_active_model_answer(client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str):
+async def test_get_active_model_answer(
+    client: AsyncClient, sample_pdf_bytes: bytes, sample_exam_id: str
+):
     """Test getting active model answer for exam."""
     # Create and activate model answer
     files = {"file": ("model_answer.pdf", io.BytesIO(sample_pdf_bytes), "application/pdf")}
