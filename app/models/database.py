@@ -11,11 +11,12 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
+    Uuid,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -44,12 +45,12 @@ class ModelAnswer(Base):
 
     __tablename__ = "model_answers"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     exam_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
-    ocr_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    segments: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    ocr_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    segments: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -68,11 +69,13 @@ class EvaluationJob(Base):
 
     __tablename__ = "evaluation_jobs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    submission_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    submission_id: Mapped[str] = mapped_column(
+        String(255), nullable=False, unique=True, index=True
+    )
     exam_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     model_answer_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("model_answers.id"), nullable=False
+        Uuid, ForeignKey("model_answers.id"), nullable=False
     )
     original_file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     status: Mapped[JobStatus] = mapped_column(
@@ -94,7 +97,9 @@ class EvaluationJob(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Relationships
     model_answer: Mapped["ModelAnswer"] = relationship(
@@ -113,19 +118,21 @@ class AnswerSegment(Base):
 
     __tablename__ = "answer_segments"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evaluation_jobs.id"), nullable=False
+        Uuid, ForeignKey("evaluation_jobs.id"), nullable=False
     )
     question_number: Mapped[int] = mapped_column(Integer, nullable=False)
     extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
-    bounding_box: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    bounding_box: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     # Relationships
-    job: Mapped["EvaluationJob"] = relationship("EvaluationJob", back_populates="answer_segments")
+    job: Mapped["EvaluationJob"] = relationship(
+        "EvaluationJob", back_populates="answer_segments"
+    )
     evaluation_result: Mapped["EvaluationResult | None"] = relationship(
         "EvaluationResult", back_populates="segment", uselist=False
     )
@@ -136,9 +143,9 @@ class EvaluationResult(Base):
 
     __tablename__ = "evaluation_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     segment_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
         ForeignKey("answer_segments.id"),
         nullable=False,
         unique=True,
@@ -169,9 +176,9 @@ class AnnotatedFile(Base):
 
     __tablename__ = "annotated_files"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
         ForeignKey("evaluation_jobs.id"),
         nullable=False,
         unique=True,
@@ -185,4 +192,6 @@ class AnnotatedFile(Base):
     )
 
     # Relationships
-    job: Mapped["EvaluationJob"] = relationship("EvaluationJob", back_populates="annotated_file")
+    job: Mapped["EvaluationJob"] = relationship(
+        "EvaluationJob", back_populates="annotated_file"
+    )

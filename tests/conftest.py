@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator, Generator
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Set test environment
@@ -90,7 +90,9 @@ def mock_storage(tmp_path) -> LocalStorage:
 
 
 @pytest_asyncio.fixture
-async def client(db_session, mock_ocr, mock_storage) -> AsyncGenerator[AsyncClient, None]:
+async def client(
+    db_session, mock_ocr, mock_storage
+) -> AsyncGenerator[AsyncClient, None]:
     """Get async test client."""
 
     async def override_get_db():
@@ -106,14 +108,18 @@ async def client(db_session, mock_ocr, mock_storage) -> AsyncGenerator[AsyncClie
     app.dependency_overrides[get_ocr] = override_get_ocr
     app.dependency_overrides[get_storage] = override_get_storage
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
         yield ac
 
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def sync_client(db_session, mock_ocr, mock_storage) -> Generator[TestClient, None, None]:
+def sync_client(
+    db_session, mock_ocr, mock_storage
+) -> Generator[TestClient, None, None]:
     """Get sync test client."""
 
     async def override_get_db():
