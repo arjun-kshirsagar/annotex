@@ -1,0 +1,253 @@
+# Annotex API Deployment
+# Kubernetes deployment manifest for the FastAPI application
+#
+# Features:
+# - Rolling update strategy for zero-downtime deployments
+# - Resource limits and requests for predictable scheduling
+# - Liveness and readiness probes for health monitoring
+# - Pod disruption budget for high availability
+# - Security context for least-privilege execution
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: annotex-api
+  labels:
+    app: annotex
+    component: api
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: annotex
+      component: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: annotex
+        component: api
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Security context for the pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      # Service account (create separately if needed)
+      serviceAccountName: default
+
+      containers:
+        - name: api
+          # Image placeholder - replaced by CD pipeline
+          image: DOCKER_IMAGE_PLACEHOLDER:IMAGE_TAG_PLACEHOLDER
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # Environment variables from ConfigMap and Secrets
+          envFrom:
+            - configMapRef:
+                name: annotex-config
+            - secretRef:
+                name: annotex-secrets
+
+          # Resource limits and requests
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+
+          # Liveness probe - restarts container if unhealthy
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe - removes from service if not ready
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Startup probe - gives time for slow-starting containers
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+
+          # Security context for the container
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+          # Volume mounts
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+            - name: tmp
+              mountPath: /tmp
+
+      # Volumes
+      volumes:
+        - name: storage
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+
+      # Pod scheduling preferences
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - annotex
+                topologyKey: kubernetes.io/hostname
+
+      # Toleration for spot instances (optional)
+      tolerations:
+        - key: "spot"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+
+---
+# Pod Disruption Budget
+# Ensures minimum availability during voluntary disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: annotex-api-pdb
+  labels:
+    app: annotex
+    component: api
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: annotex
+      component: api
+
+---
+# Celery Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: annotex-worker
+  labels:
+    app: annotex
+    component: worker
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: annotex
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: annotex
+        component: worker
+        version: v1
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: worker
+          image: DOCKER_IMAGE_PLACEHOLDER:IMAGE_TAG_PLACEHOLDER
+          imagePullPolicy: Always
+
+          # Override command for Celery worker
+          command:
+            - celery
+            - -A
+            - app.workers.celery_app
+            - worker
+            - --loglevel=info
+            - --concurrency=2
+
+          envFrom:
+            - configMapRef:
+                name: annotex-config
+            - secretRef:
+                name: annotex-secrets
+
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+
+          # Liveness probe for worker
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - app.workers.celery_app
+                - inspect
+                - ping
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: storage
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

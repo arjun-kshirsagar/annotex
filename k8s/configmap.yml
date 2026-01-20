@@ -1,0 +1,44 @@
+# Annotex ConfigMap
+# Non-sensitive configuration for the application
+#
+# Note: Sensitive values (passwords, API keys) should be stored in Secrets
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: annotex-config
+  labels:
+    app: annotex
+data:
+  # Application settings
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+
+  # Storage configuration
+  STORAGE_BACKEND: "local"
+  STORAGE_BASE_PATH: "/app/storage"
+
+  # OCR configuration
+  OCR_PROVIDER: "google"
+
+  # Evaluation thresholds
+  CORRECT_THRESHOLD: "0.75"
+  PARTIAL_THRESHOLD: "0.50"
+
+  # API settings
+  API_V1_PREFIX: "/api/v1"
+  PROJECT_NAME: "Annotex"
+
+  # CORS settings (adjust for your domain)
+  CORS_ORIGINS: '["https://annotex.example.com", "https://app.annotex.example.com"]'
+
+  # Celery settings
+  CELERY_TASK_ALWAYS_EAGER: "false"
+  CELERY_TASK_ACKS_LATE: "true"
+  CELERY_TASK_REJECT_ON_WORKER_LOST: "true"
+  CELERY_WORKER_PREFETCH_MULTIPLIER: "1"
+
+  # Python settings
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"

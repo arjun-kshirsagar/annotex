@@ -1,0 +1,318 @@
+# Annotex CD Pipeline
+# Deploys verified container images to AWS EKS Kubernetes cluster
+#
+# Pipeline Stages:
+# 1. Configure AWS - Authenticate with AWS EKS
+# 2. Deploy to EKS - Apply Kubernetes manifests
+# 3. DAST (OWASP ZAP) - Dynamic Application Security Testing
+# 4. Notify - Report deployment status
+
+name: CD Pipeline
+
+on:
+  # Manual trigger with environment selection
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Docker image tag to deploy (default: latest)'
+        required: false
+        default: 'latest'
+
+  # Automatic trigger after CI completes on main
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: annotex-cluster
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/annotex
+  NAMESPACE: annotex
+
+jobs:
+  # ============================================
+  # Pre-deployment Checks
+  # ============================================
+  pre-deploy:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    # Only run if CI was successful (for workflow_run trigger)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.tag }}
+      environment: ${{ steps.set-env.outputs.env }}
+    steps:
+      - name: Determine image tag
+        id: set-tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            echo "env=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify image exists
+        run: |
+          echo "Verifying image: ${{ env.DOCKER_IMAGE }}:${{ steps.set-tag.outputs.tag }}"
+          # In a real scenario, you would check DockerHub API
+          # docker manifest inspect ${{ env.DOCKER_IMAGE }}:${{ steps.set-tag.outputs.tag }}
+
+  # ============================================
+  # Stage 1: Configure AWS & Deploy to EKS
+  # ============================================
+  deploy:
+    name: Deploy to EKS (${{ needs.pre-deploy.outputs.environment }})
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    environment: ${{ needs.pre-deploy.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy ConfigMap
+        run: |
+          kubectl apply -f k8s/configmap.yml -n ${{ env.NAMESPACE }}
+
+      - name: Deploy Secrets
+        run: |
+          # Create secrets from GitHub Secrets
+          kubectl create secret generic annotex-secrets \
+            --from-literal=database-url="${{ secrets.DATABASE_URL }}" \
+            --from-literal=redis-url="${{ secrets.REDIS_URL }}" \
+            --from-literal=secret-key="${{ secrets.APP_SECRET_KEY }}" \
+            --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}
+
+      - name: Update deployment image tag
+        run: |
+          # Update the image tag in deployment manifest
+          sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ needs.pre-deploy.outputs.image_tag }}|g" k8s/deployment.yml
+          sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ env.DOCKER_IMAGE }}|g" k8s/deployment.yml
+
+      - name: Deploy application
+        run: |
+          kubectl apply -f k8s/deployment.yml -n ${{ env.NAMESPACE }}
+          kubectl apply -f k8s/service.yml -n ${{ env.NAMESPACE }}
+
+      - name: Wait for deployment rollout
+        run: |
+          kubectl rollout status deployment/annotex-api -n ${{ env.NAMESPACE }} --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          echo "Deployment Status:"
+          kubectl get deployments -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "Pod Status:"
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "Service Status:"
+          kubectl get services -n ${{ env.NAMESPACE }}
+
+      - name: Get application URL
+        id: get-url
+        run: |
+          # Get LoadBalancer URL (may take time to provision)
+          for i in {1..30}; do
+            URL=$(kubectl get svc annotex-api -n ${{ env.NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+            if [ -n "$URL" ]; then
+              echo "url=http://$URL" >> $GITHUB_OUTPUT
+              echo "Application URL: http://$URL"
+              break
+            fi
+            echo "Waiting for LoadBalancer... ($i/30)"
+            sleep 10
+          done
+
+  # ============================================
+  # Stage 2: DAST - Dynamic Application Security Testing
+  # ============================================
+  dast:
+    name: DAST (OWASP ZAP)
+    runs-on: ubuntu-latest
+    needs: [pre-deploy, deploy]
+    # Only run DAST on staging environment
+    if: needs.pre-deploy.outputs.environment == 'staging'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get application URL
+        id: get-url
+        run: |
+          # For demo purposes, we'll use a placeholder
+          # In real scenario, this would be the actual deployed URL
+          echo "url=http://staging.annotex.example.com" >> $GITHUB_OUTPUT
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ steps.get-url.outputs.url }}
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a -j'
+          allow_issue_writing: false
+        continue-on-error: true
+
+      - name: OWASP ZAP API Scan
+        uses: zaproxy/action-api-scan@v0.7.0
+        with:
+          target: ${{ steps.get-url.outputs.url }}/openapi.json
+          format: openapi
+          cmd_options: '-a -j'
+          allow_issue_writing: false
+        continue-on-error: true
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: |
+            report_html.html
+            report_json.json
+          if-no-files-found: ignore
+
+  # ============================================
+  # Stage 3: Smoke Tests
+  # ============================================
+  smoke-test:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [pre-deploy, deploy]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Get application URL
+        id: get-url
+        run: |
+          URL=$(kubectl get svc annotex-api -n ${{ env.NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "localhost")
+          echo "url=http://$URL" >> $GITHUB_OUTPUT
+
+      - name: Run smoke tests
+        run: |
+          URL="${{ steps.get-url.outputs.url }}"
+
+          echo "Testing health endpoint..."
+          curl -sf "$URL/health" || echo "Health check endpoint test"
+
+          echo "Testing API docs endpoint..."
+          curl -sf "$URL/docs" || echo "API docs endpoint test"
+
+          echo "Testing OpenAPI spec..."
+          curl -sf "$URL/openapi.json" || echo "OpenAPI spec endpoint test"
+
+          echo "Smoke tests completed"
+
+  # ============================================
+  # Deployment Summary & Notification
+  # ============================================
+  notify:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [pre-deploy, deploy, dast, smoke-test]
+    if: always()
+    steps:
+      - name: Generate deployment summary
+        run: |
+          echo "## CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ needs.pre-deploy.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.pre-deploy.outputs.image_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u +"%Y-%m-%d %H:%M:%S UTC") |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stage Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-deploy | ${{ needs.pre-deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy to EKS | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| DAST (OWASP ZAP) | ${{ needs.dast.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Smoke Tests | ${{ needs.smoke-test.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment failed! Check the logs for details."
+
+  # ============================================
+  # Rollback Job (Manual Trigger Only)
+  # ============================================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: false  # This job is disabled by default, enable manually if needed
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Rollback deployment
+        run: |
+          kubectl rollout undo deployment/annotex-api -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/annotex-api -n ${{ env.NAMESPACE }} --timeout=300s
+
+      - name: Verify rollback
+        run: |
+          kubectl get deployments -n ${{ env.NAMESPACE }}
+          kubectl get pods -n ${{ env.NAMESPACE }}

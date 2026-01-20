@@ -1,0 +1,84 @@
+# OWASP ZAP Baseline Scan Rules Configuration
+# Format: rule_id	action	description
+# Actions: IGNORE, WARN, FAIL
+#
+# Reference: https://www.zaproxy.org/docs/docker/baseline-scan/
+
+# Informational alerts - IGNORE in baseline scan
+10003	IGNORE	Vulnerable JS Library (to be validated manually)
+10015	IGNORE	Incomplete or No Cache-control and Pragma HTTP Header Set
+10020	IGNORE	X-Frame-Options Header
+10021	IGNORE	X-Content-Type-Options Header Not Set
+10036	IGNORE	Server Leaks Version Information via "Server" HTTP Response Header Field
+10037	IGNORE	Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)
+10038	IGNORE	Content Security Policy (CSP) Header Not Set
+10055	IGNORE	CSP: style-src unsafe-inline
+10063	IGNORE	Feature Policy Header Not Set
+10096	IGNORE	Timestamp Disclosure - Unix
+10109	IGNORE	Modern Web Application
+10110	IGNORE	Dangerous JS Functions
+10202	IGNORE	Absence of Anti-CSRF Tokens
+90001	IGNORE	Insecure JSF ViewState
+90011	IGNORE	Charset Mismatch
+90022	IGNORE	Application Error Disclosure
+90033	IGNORE	Loosely Scoped Cookie
+
+# Low-risk alerts - WARN (report but don't fail)
+10016	WARN	Web Browser XSS Protection Not Enabled
+10017	WARN	Cross-Domain JavaScript Source File Inclusion
+10019	WARN	Content-Type Header Missing
+10023	WARN	Information Disclosure - Debug Error Messages
+10024	WARN	Information Disclosure - Sensitive Information in URL
+10025	WARN	Information Disclosure - Sensitive Information in HTTP Referrer Header
+10027	WARN	Information Disclosure - Suspicious Comments
+10054	WARN	Cookie Without SameSite Attribute
+10057	WARN	Username Hash Found
+10062	WARN	PII Disclosure
+
+# Medium-risk alerts - WARN (should be reviewed)
+10010	WARN	Cookie No HttpOnly Flag
+10011	WARN	Cookie Without Secure Flag
+10012	WARN	Password Autocomplete in Browser
+10035	WARN	Strict-Transport-Security Header Not Set
+10040	WARN	Secure Pages Include Mixed Content
+10098	WARN	Cross-Domain Misconfiguration
+
+# High-risk alerts - FAIL (must be fixed)
+10016	FAIL	Web Browser XSS Protection Not Enabled (confirmed XSS)
+10032	FAIL	Viewstate without MAC Signature
+10034	FAIL	Heartbleed OpenSSL Vulnerability
+10045	FAIL	Source Code Disclosure - /WEB-INF folder
+10047	FAIL	HTTPS Content Available via HTTP
+10105	FAIL	Weak Authentication Method
+10106	FAIL	HTTP Only Site
+40003	FAIL	CRLF Injection
+40008	FAIL	Parameter Tampering
+40009	FAIL	Server Side Include
+40012	FAIL	Cross Site Scripting (Reflected)
+40013	FAIL	Session ID in URL Rewrite
+40014	FAIL	Cross Site Scripting (Persistent)
+40016	FAIL	Cross Site Scripting (Persistent) - Prime
+40017	FAIL	Cross Site Scripting (Persistent) - Spider
+40018	FAIL	SQL Injection
+40019	FAIL	SQL Injection - MySQL
+40020	FAIL	SQL Injection - Hypersonic SQL
+40021	FAIL	SQL Injection - Oracle
+40022	FAIL	SQL Injection - PostgreSQL
+40024	FAIL	SQL Injection - SQLite
+40026	FAIL	Cross Site Scripting (DOM Based)
+40027	FAIL	SQL Injection - MsSQL
+40028	FAIL	ELMAH Information Leak
+40029	FAIL	Trace.axd Information Leak
+40032	FAIL	XSLT Injection
+40034	FAIL	.htaccess Information Leak
+40035	FAIL	Hidden File Found
+90017	FAIL	XSLT Injection
+90019	FAIL	Server Side Code Injection
+90020	FAIL	Remote OS Command Injection
+90021	FAIL	XPath Injection
+90023	FAIL	XML External Entity Attack
+90024	FAIL	Generic Padding Oracle
+90025	FAIL	Expression Language Injection
+90028	FAIL	Insecure HTTP Method
+90029	FAIL	SOAP XML Injection
+90030	FAIL	WSDL File Detection

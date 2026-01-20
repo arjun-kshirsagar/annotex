@@ -1,0 +1,70 @@
+# Annotex Services
+# Kubernetes service manifests for exposing the application
+#
+# Services:
+# - annotex-api: LoadBalancer for external access to API
+# - annotex-api-internal: ClusterIP for internal communication
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: annotex-api
+  labels:
+    app: annotex
+    component: api
+  annotations:
+    # AWS ALB annotations (if using AWS Load Balancer Controller)
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+  type: LoadBalancer
+  selector:
+    app: annotex
+    component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+
+---
+# Internal service for cluster-internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: annotex-api-internal
+  labels:
+    app: annotex
+    component: api
+spec:
+  type: ClusterIP
+  selector:
+    app: annotex
+    component: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+
+---
+# Headless service for direct pod access (useful for debugging)
+apiVersion: v1
+kind: Service
+metadata:
+  name: annotex-api-headless
+  labels:
+    app: annotex
+    component: api
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: annotex
+    component: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
