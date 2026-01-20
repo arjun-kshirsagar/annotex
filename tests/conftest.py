@@ -16,13 +16,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 os.environ["OCR_PROVIDER"] = "mock"
 os.environ["STORAGE_BASE_PATH"] = tempfile.mkdtemp(prefix="annotex_test_")
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test.db"
+os.environ["CELERY_TASK_ALWAYS_EAGER"] = "True"
+os.environ["CELERY_RESULT_BACKEND"] = "rpc://"
 
-from app.api.deps import get_db, get_ocr, get_storage
-from app.core.config import Settings
-from app.db.base import Base
-from app.main import app
-from app.services.ocr_service import MockOCR
-from app.services.storage_service import LocalStorage
+
+from app.api.deps import get_db, get_ocr, get_storage  # noqa: E402
+from app.core.config import Settings  # noqa: E402
+from app.db.base import Base  # noqa: E402
+from app.main import app  # noqa: E402
+from app.services.ocr_service import MockOCR  # noqa: E402
+from app.services.storage_service import LocalStorage  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -90,9 +93,7 @@ def mock_storage(tmp_path) -> LocalStorage:
 
 
 @pytest_asyncio.fixture
-async def client(
-    db_session, mock_ocr, mock_storage
-) -> AsyncGenerator[AsyncClient, None]:
+async def client(db_session, mock_ocr, mock_storage) -> AsyncGenerator[AsyncClient, None]:
     """Get async test client."""
 
     async def override_get_db():
@@ -108,18 +109,14 @@ async def client(
     app.dependency_overrides[get_ocr] = override_get_ocr
     app.dependency_overrides[get_storage] = override_get_storage
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def sync_client(
-    db_session, mock_ocr, mock_storage
-) -> Generator[TestClient, None, None]:
+def sync_client(db_session, mock_ocr, mock_storage) -> Generator[TestClient, None, None]:
     """Get sync test client."""
 
     async def override_get_db():

@@ -5,13 +5,13 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Enum,
     Float,
     ForeignKey,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -70,9 +70,7 @@ class EvaluationJob(Base):
     __tablename__ = "evaluation_jobs"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    submission_id: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True, index=True
-    )
+    submission_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     exam_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     model_answer_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("model_answers.id"), nullable=False
@@ -97,9 +95,7 @@ class EvaluationJob(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     model_answer: Mapped["ModelAnswer"] = relationship(
@@ -130,9 +126,7 @@ class AnswerSegment(Base):
     )
 
     # Relationships
-    job: Mapped["EvaluationJob"] = relationship(
-        "EvaluationJob", back_populates="answer_segments"
-    )
+    job: Mapped["EvaluationJob"] = relationship("EvaluationJob", back_populates="answer_segments")
     evaluation_result: Mapped["EvaluationResult | None"] = relationship(
         "EvaluationResult", back_populates="segment", uselist=False
     )
@@ -192,6 +186,4 @@ class AnnotatedFile(Base):
     )
 
     # Relationships
-    job: Mapped["EvaluationJob"] = relationship(
-        "EvaluationJob", back_populates="annotated_file"
-    )
+    job: Mapped["EvaluationJob"] = relationship("EvaluationJob", back_populates="annotated_file")

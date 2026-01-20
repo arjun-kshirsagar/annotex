@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0")
     celery_broker_url: str = Field(default="redis://localhost:6379/0")
     celery_result_backend: str = Field(default="redis://localhost:6379/1")
+    celery_task_always_eager: bool = Field(default=False)
 
     # =========================================================================
     # File Storage
