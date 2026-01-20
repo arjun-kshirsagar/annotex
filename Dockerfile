@@ -17,9 +17,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install Python dependencies
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir "torch>=2.1.0,<3.0.0" --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --upgrade pip && \
+    pip install "torch>=2.1.0,<3.0.0" --index-url https://download.pytorch.org/whl/cpu --default-timeout=100 && \
+    pip install -r requirements.txt
 
 # Runtime stage
 FROM python:3.11-slim
