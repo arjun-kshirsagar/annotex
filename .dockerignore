@@ -20,3 +20,11 @@ google-credentials.json
 .zap
 docs
 tests
+
+# Dev configs
+docker-compose.yml
+docker-compose.override.yml
+Makefile
+*.md
+.pre-commit-config.yaml
+alembic.ini
