@@ -8,12 +8,19 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+engine_args = {
+    "echo": settings.debug,
+    "pool_pre_ping": True,
+}
+
+# SQLite does not support connection pooling configuration
+if "sqlite" not in settings.database_url:
+    engine_args["pool_size"] = 10
+    engine_args["max_overflow"] = 20
+
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    **engine_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(
