@@ -1,4 +1,5 @@
 """SQLAlchemy ORM models."""
+
 import enum
 import uuid
 from datetime import datetime
@@ -61,9 +62,7 @@ class ModelAnswer(Base):
         "EvaluationJob", back_populates="model_answer"
     )
 
-    __table_args__ = (
-        UniqueConstraint("exam_id", "version", name="uq_exam_version"),
-    )
+    __table_args__ = (UniqueConstraint("exam_id", "version", name="uq_exam_version"),)
 
 
 class EvaluationJob(Base):
@@ -83,7 +82,13 @@ class EvaluationJob(Base):
     )
     original_file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus), default=JobStatus.QUEUED, nullable=False
+        Enum(
+            JobStatus,
+            native_enum=True,
+            values_callable=lambda obj: [item.value for item in obj],
+        ),
+        default=JobStatus.QUEUED,
+        nullable=False,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -147,11 +152,21 @@ class EvaluationResult(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     segment_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("answer_segments.id"), nullable=False, unique=True
+        UUID(as_uuid=True),
+        ForeignKey("answer_segments.id"),
+        nullable=False,
+        unique=True,
     )
     model_answer_reference: Mapped[str] = mapped_column(Text, nullable=False)
     similarity_score: Mapped[float] = mapped_column(Float, nullable=False)
-    verdict: Mapped[Verdict] = mapped_column(Enum(Verdict), nullable=False)
+    verdict: Mapped[Verdict] = mapped_column(
+        Enum(
+            Verdict,
+            native_enum=True,
+            values_callable=lambda obj: [item.value for item in obj],
+        ),
+        nullable=False,
+    )
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -172,11 +187,12 @@ class AnnotatedFile(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evaluation_jobs.id"), nullable=False, unique=True
+        UUID(as_uuid=True),
+        ForeignKey("evaluation_jobs.id"),
+        nullable=False,
+        unique=True,
     )
-    submission_id: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True
-    )
+    submission_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     exam_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     checksum: Mapped[str] = mapped_column(String(64), nullable=False)
