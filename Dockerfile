@@ -18,7 +18,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && \
-    pip install "torch>=2.1.0,<3.0.0" --index-url https://download.pytorch.org/whl/cpu --default-timeout=100 && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+        pip install "torch>=2.1.0,<3.0.0" --index-url https://download.pytorch.org/whl/cpu --default-timeout=100; \
+    else \
+        pip install "torch>=2.1.0,<3.0.0" --default-timeout=100; \
+    fi && \
     pip install -r requirements.txt
 
 # Runtime stage
