@@ -1,4 +1,5 @@
 """OCR service abstraction with Google Vision implementation."""
+
 import base64
 import json
 import os
@@ -142,9 +143,7 @@ class OCRProvider(ABC):
         pass
 
     @abstractmethod
-    async def extract_text_from_bytes(
-        self, data: bytes, filename: str
-    ) -> OCRResult:
+    async def extract_text_from_bytes(self, data: bytes, filename: str) -> OCRResult:
         """Extract text from file bytes.
 
         Args:
@@ -196,9 +195,7 @@ class GoogleVisionOCR(OCRProvider):
                         "Failed to decode base64 credentials",
                         error=str(e),
                     )
-                    raise ValueError(
-                        "Invalid GOOGLE_SERVICE_ACCOUNT_KEY_BASE64"
-                    ) from e
+                    raise ValueError("Invalid GOOGLE_SERVICE_ACCOUNT_KEY_BASE64") from e
 
             # Priority 2: Credentials file path
             elif settings.get_google_credentials_path():
@@ -239,9 +236,7 @@ class GoogleVisionOCR(OCRProvider):
             data = f.read()
         return await self.extract_text_from_bytes(data, path.name)
 
-    async def extract_text_from_bytes(
-        self, data: bytes, filename: str
-    ) -> OCRResult:
+    async def extract_text_from_bytes(self, data: bytes, filename: str) -> OCRResult:
         """Extract text from file bytes using Google Vision."""
         from google.cloud import vision
 
@@ -286,9 +281,7 @@ class GoogleVisionOCR(OCRProvider):
         )
         return OCRResult(pages=pages)
 
-    async def _process_image(
-        self, client, data: bytes, page_number: int
-    ) -> OCRResult:
+    async def _process_image(self, client, data: bytes, page_number: int) -> OCRResult:
         """Process single image with Google Vision."""
         from google.cloud import vision
 
@@ -317,9 +310,7 @@ class GoogleVisionOCR(OCRProvider):
                 text_parts = []
                 for paragraph in block.paragraphs:
                     for word in paragraph.words:
-                        word_text = "".join(
-                            symbol.text for symbol in word.symbols
-                        )
+                        word_text = "".join(symbol.text for symbol in word.symbols)
                         text_parts.append(word_text)
 
                 text = " ".join(text_parts)
@@ -327,8 +318,14 @@ class GoogleVisionOCR(OCRProvider):
                     continue
 
                 vertices = block.bounding_box.vertices
-                x_coords = [v.x for v in vertices]
-                y_coords = [v.y for v in vertices]
+                x_coords = [v.x for v in vertices if v.x is not None]
+                y_coords = [v.y for v in vertices if v.y is not None]
+
+                if not x_coords or not y_coords:
+                    logger.warning(
+                        "Skipping block with no vertices/coordinates", text=text[:50]
+                    )
+                    continue
 
                 bbox = BoundingBox(
                     page=page_number,
@@ -339,13 +336,9 @@ class GoogleVisionOCR(OCRProvider):
                 )
 
                 confidence = sum(
-                    word.confidence
-                    for para in block.paragraphs
-                    for word in para.words
+                    word.confidence for para in block.paragraphs for word in para.words
                 ) / max(
-                    sum(
-                        len(para.words) for para in block.paragraphs
-                    ),
+                    sum(len(para.words) for para in block.paragraphs),
                     1,
                 )
 
@@ -407,9 +400,7 @@ class MockOCR(OCRProvider):
         logger.info("Mock OCR extracting text", file_path=file_path)
         return self.mock_responses.get(file_path, self.default_response)
 
-    async def extract_text_from_bytes(
-        self, data: bytes, filename: str
-    ) -> OCRResult:
+    async def extract_text_from_bytes(self, data: bytes, filename: str) -> OCRResult:
         """Return mock OCR result."""
         logger.info("Mock OCR extracting text from bytes", filename=filename)
         return self.mock_responses.get(filename, self.default_response)

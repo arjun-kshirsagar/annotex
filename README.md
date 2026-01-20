@@ -47,7 +47,7 @@ docker-compose --profile migrate run migrate
 curl http://localhost:8000/health
 
 # View logs
-docker-compose logs -f api
+docker-compose logs -f api # if you dont add api, it will print logs of all services
 ```
 
 ### Local Development
