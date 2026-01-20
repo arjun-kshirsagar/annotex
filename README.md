@@ -2,7 +2,12 @@
 
 A production-grade Python FastAPI backend for evaluating subjective exam answers with visual annotations (green/yellow/red markings).
 
-> See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed project structure and design decisions.
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | Project structure, design decisions, future roadmap |
+| [Testing Guide](docs/TESTING.md) | Step-by-step API testing workflow |
 
 ## Features
 
@@ -240,7 +245,7 @@ annotex/
 └── requirements.txt
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed structure and future roadmap.
+See [docs/](docs/) for detailed documentation.
 
 ## License
 
