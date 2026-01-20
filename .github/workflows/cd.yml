@@ -26,6 +26,11 @@ on:
         required: false
         default: 'latest'
 
+  # Trigger CD on push to main (skipping CI for testing)
+  push:
+    branches:
+      - main
+
   # Automatic trigger after CI completes on main
   workflow_run:
     workflows: ["CI Pipeline"]
@@ -35,7 +40,7 @@ on:
       - main
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: ap-south-1
   EKS_CLUSTER_NAME: annotex
   DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/annotex
   NAMESPACE: annotex
@@ -50,6 +55,7 @@ jobs:
     # Only run if CI was successful (for workflow_run trigger)
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       image_tag: ${{ steps.set-tag.outputs.tag }}
@@ -60,6 +66,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            # For testing CD without CI, we use 'latest'
+            echo "tag=latest" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
           fi
