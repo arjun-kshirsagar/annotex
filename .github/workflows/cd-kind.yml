@@ -107,9 +107,9 @@ jobs:
       - name: Deploy Secrets (mock for Kind)
         run: |
           kubectl create secret generic annotex-secrets \
-            --from-literal=database-url="postgresql+asyncpg://postgres:postgres@postgres:5432/annotex" \
-            --from-literal=redis-url="redis://redis:6379/0" \
-            --from-literal=secret-key="kind-dev-secret-key-not-for-production" \
+            --from-literal=DATABASE_URL="postgresql+asyncpg://postgres:postgres@postgres:5432/annotex" \
+            --from-literal=REDIS_URL="redis://redis:6379/0" \
+            --from-literal=SECRET_KEY="kind-dev-secret-key-not-for-production" \
             --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}
 
       - name: Deploy PostgreSQL for testing

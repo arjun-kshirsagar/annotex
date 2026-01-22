@@ -49,9 +49,8 @@ spec:
 
       containers:
         - name: api
-          # Image placeholder - replaced by CD pipeline
           image: DOCKER_IMAGE_PLACEHOLDER:IMAGE_TAG_PLACEHOLDER
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
 
           ports:
             - name: http
@@ -194,7 +193,7 @@ spec:
       containers:
         - name: worker
           image: DOCKER_IMAGE_PLACEHOLDER:IMAGE_TAG_PLACEHOLDER
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
 
           # Override command for Celery worker
           command:

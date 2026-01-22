@@ -138,9 +138,9 @@ jobs:
         run: |
           # Create secrets from GitHub Secrets
           kubectl create secret generic annotex-secrets \
-            --from-literal=database-url="${{ secrets.DATABASE_URL }}" \
-            --from-literal=redis-url="${{ secrets.REDIS_URL }}" \
-            --from-literal=secret-key="${{ secrets.APP_SECRET_KEY }}" \
+            --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --from-literal=REDIS_URL="${{ secrets.REDIS_URL }}" \
+            --from-literal=SECRET_KEY="${{ secrets.APP_SECRET_KEY }}" \
             --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}
 
       - name: Update deployment image tag
