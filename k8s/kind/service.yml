@@ -1,0 +1,44 @@
+# Annotex Services for Kind
+# NodePort services for accessing the application in Kind cluster
+#
+# Note: Kind doesn't support LoadBalancer out of the box,
+# so we use NodePort with port mappings defined in cluster-config.yml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: annotex-api
+  labels:
+    app: annotex
+    component: api
+spec:
+  type: NodePort
+  selector:
+    app: annotex
+    component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      nodePort: 30080
+      protocol: TCP
+
+---
+# Internal service for cluster-internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: annotex-api-internal
+  labels:
+    app: annotex
+    component: api
+spec:
+  type: ClusterIP
+  selector:
+    app: annotex
+    component: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

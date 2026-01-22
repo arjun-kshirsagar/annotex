@@ -26,18 +26,20 @@ on:
         required: false
         default: 'latest'
 
-  # Trigger CD on push to main (skipping CI for testing)
-  push:
-    branches:
-      - main
+  # Trigger CD on push to main (disabled - using Kind CD instead)
+  # Uncomment below to re-enable AWS EKS deployment on push
+  # push:
+  #   branches:
+  #     - main
 
-  # Automatic trigger after CI completes on main
-  workflow_run:
-    workflows: ["CI Pipeline"]
-    types:
-      - completed
-    branches:
-      - main
+  # Automatic trigger after CI completes on main (disabled - using Kind CD instead)
+  # Uncomment below to re-enable AWS EKS deployment after CI
+  # workflow_run:
+  #   workflows: ["CI Pipeline"]
+  #   types:
+  #     - completed
+  #   branches:
+  #     - main
 
 env:
   AWS_REGION: ap-south-1
@@ -114,8 +116,13 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Verify cluster connection
+      - name: Verify cluster connectivity
         run: |
+          echo "Checking cluster: ${{ env.EKS_CLUSTER_NAME }}"
+          if ! aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            echo "::error::EKS Cluster '${{ env.EKS_CLUSTER_NAME }}' not found in ${{ env.AWS_REGION }}. Please create it first using the provided eksctl command."
+            exit 1
+          fi
           kubectl cluster-info
           kubectl get nodes
 
@@ -166,16 +173,22 @@ jobs:
         id: get-url
         run: |
           # Get LoadBalancer URL (may take time to provision)
+          echo "Waiting for LoadBalancer to be provisioned (this can take up to 5 minutes)..."
           for i in {1..30}; do
             URL=$(kubectl get svc annotex-api -n ${{ env.NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
             if [ -n "$URL" ]; then
               echo "url=http://$URL" >> $GITHUB_OUTPUT
               echo "Application URL: http://$URL"
-              break
+              # Store in step summary
+              echo "### Application Deployed!" >> $GITHUB_STEP_SUMMARY
+              echo "URL: http://$URL" >> $GITHUB_STEP_SUMMARY
+              exit 0
             fi
-            echo "Waiting for LoadBalancer... ($i/30)"
+            echo "Waiting for LoadBalancer... iteration $i/30"
             sleep 10
           done
+          echo "::warning::LoadBalancer URL not available yet. It may still be provisioning."
+          echo "url=pending" >> $GITHUB_OUTPUT
 
   # ============================================
   # Stage 2: DAST - Dynamic Application Security Testing

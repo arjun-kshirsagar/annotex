@@ -20,7 +20,7 @@ data:
   STORAGE_BASE_PATH: "/app/storage"
 
   # OCR configuration
-  OCR_PROVIDER: "google"
+  OCR_PROVIDER: "google_vision"
 
   # Evaluation thresholds
   CORRECT_THRESHOLD: "0.75"

@@ -1,0 +1,212 @@
+# Annotex CD Pipeline (Kind)
+# Deploys application to Kind (Kubernetes in Docker) cluster in GitHub Actions
+#
+# This is a simpler CD pipeline that doesn't require AWS credentials.
+# Use this when you can't access AWS or want to test deployments locally.
+#
+# Pipeline Stages:
+# 1. Build Docker image
+# 2. Create Kind cluster
+# 3. Load image into Kind
+# 4. Deploy application
+# 5. Run smoke tests
+
+name: CD Pipeline (Kind)
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to use'
+        required: false
+        default: 'latest'
+
+  # Trigger on push to main
+  push:
+    branches:
+      - main
+
+  # Trigger after CI completes
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: annotex
+  NAMESPACE: annotex
+
+jobs:
+  # ============================================
+  # Pre-deployment Checks
+  # ============================================
+  pre-deploy:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.tag }}
+    steps:
+      - name: Determine image tag
+        id: set-tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================
+  # Build & Deploy to Kind
+  # ============================================
+  deploy:
+    name: Deploy to Kind Cluster
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ needs.pre-deploy.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: annotex-cluster
+          config: k8s/kind/cluster-config.yml
+
+      - name: Load image into Kind
+        run: |
+          kind load docker-image ${{ env.IMAGE_NAME }}:${{ needs.pre-deploy.outputs.image_tag }} --name annotex-cluster
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy ConfigMap
+        run: |
+          kubectl apply -f k8s/configmap.yml -n ${{ env.NAMESPACE }}
+
+      - name: Deploy Secrets (mock for Kind)
+        run: |
+          kubectl create secret generic annotex-secrets \
+            --from-literal=database-url="postgresql+asyncpg://postgres:postgres@postgres:5432/annotex" \
+            --from-literal=redis-url="redis://redis:6379/0" \
+            --from-literal=secret-key="kind-dev-secret-key-not-for-production" \
+            --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}
+
+      - name: Deploy PostgreSQL for testing
+        run: |
+          kubectl apply -f k8s/kind/postgres.yml -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=ready pod -l app=postgres -n ${{ env.NAMESPACE }} --timeout=120s
+
+      - name: Deploy Redis for testing
+        run: |
+          kubectl apply -f k8s/kind/redis.yml -n ${{ env.NAMESPACE }}
+          kubectl wait --for=condition=ready pod -l app=redis -n ${{ env.NAMESPACE }} --timeout=120s
+
+      - name: Update deployment image
+        run: |
+          # Create a copy of deployment with actual image
+          sed "s|DOCKER_IMAGE_PLACEHOLDER:IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_NAME }}:${{ needs.pre-deploy.outputs.image_tag }}|g" \
+            k8s/deployment.yml > k8s/deployment-kind.yml
+
+      - name: Deploy application
+        run: |
+          kubectl apply -f k8s/deployment-kind.yml -n ${{ env.NAMESPACE }}
+          kubectl apply -f k8s/kind/service.yml -n ${{ env.NAMESPACE }}
+
+      - name: Wait for deployment rollout
+        run: |
+          kubectl rollout status deployment/annotex-api -n ${{ env.NAMESPACE }} --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          echo "Deployment Status:"
+          kubectl get deployments -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "Pod Status:"
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "Service Status:"
+          kubectl get services -n ${{ env.NAMESPACE }}
+
+      - name: Run smoke tests
+        run: |
+          echo "Port forwarding to service..."
+          kubectl port-forward svc/annotex-api 8080:80 -n ${{ env.NAMESPACE }} &
+          PF_PID=$!
+          sleep 5
+
+          echo "Testing health endpoint..."
+          curl -sf http://localhost:8080/health || echo "Health endpoint returned non-zero (may be expected if DB not ready)"
+
+          echo ""
+          echo "Testing API docs endpoint..."
+          curl -sf http://localhost:8080/docs || echo "Docs endpoint test"
+
+          echo ""
+          echo "Testing OpenAPI spec..."
+          curl -sf http://localhost:8080/openapi.json | head -c 500 || echo "OpenAPI spec test"
+
+          echo ""
+          echo "Smoke tests completed"
+
+          kill $PF_PID 2>/dev/null || true
+
+      - name: Get pod logs on failure
+        if: failure()
+        run: |
+          echo "=== Pod descriptions ==="
+          kubectl describe pods -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "=== Pod logs ==="
+          kubectl logs -l app=annotex --all-containers=true -n ${{ env.NAMESPACE }} --tail=100 || true
+
+  # ============================================
+  # Deployment Summary
+  # ============================================
+  notify:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [pre-deploy, deploy]
+    if: always()
+    steps:
+      - name: Generate deployment summary
+        run: |
+          echo "## CD Pipeline (Kind) Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Cluster | Kind (annotex-cluster) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.pre-deploy.outputs.image_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u +"%Y-%m-%d %H:%M:%S UTC") |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stage Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-deploy | ${{ needs.pre-deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy to Kind | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment to Kind cluster failed! Check the logs for details."

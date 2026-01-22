@@ -1,0 +1,28 @@
+# Kind Cluster Configuration
+# Configuration for local Kubernetes cluster using Kind
+#
+# Features:
+# - Single control-plane node (sufficient for CI/CD testing)
+# - Port mappings for accessing services
+# - Extra mounts for local development
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # Map container port 30080 to host port 8080 for NodePort services
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+      # Map container port 30443 to host port 8443 for HTTPS
+      - containerPort: 30443
+        hostPort: 8443
+        protocol: TCP
