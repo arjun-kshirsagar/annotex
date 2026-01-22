@@ -14,12 +14,11 @@
 
 name: CI Pipeline
 
-# on:
-#   push:
-#     branches: [main]
-#   pull_request:
-#     branches: [main]
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:  # Manual trigger only for now
 
 env:
