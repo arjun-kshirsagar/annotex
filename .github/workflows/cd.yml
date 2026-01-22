@@ -141,7 +141,7 @@ jobs:
             --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             --from-literal=REDIS_URL="${{ secrets.REDIS_URL }}" \
             --from-literal=SECRET_KEY="${{ secrets.APP_SECRET_KEY }}" \
-            --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}
+            --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}  # pragma: allowlist secret
 
       - name: Update deployment image tag
         run: |

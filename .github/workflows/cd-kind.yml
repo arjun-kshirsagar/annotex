@@ -110,7 +110,7 @@ jobs:
             --from-literal=DATABASE_URL="postgresql+asyncpg://postgres:postgres@postgres:5432/annotex" \
             --from-literal=REDIS_URL="redis://redis:6379/0" \
             --from-literal=SECRET_KEY="kind-dev-secret-key-not-for-production" \
-            --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}
+            --dry-run=client -o yaml | kubectl apply -f - -n ${{ env.NAMESPACE }}  # pragma: allowlist secret
 
       - name: Deploy PostgreSQL for testing
         run: |
