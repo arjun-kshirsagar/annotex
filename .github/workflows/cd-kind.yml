@@ -22,11 +22,6 @@ on:
         required: false
         default: 'latest'
 
-  # Trigger on push to main
-  push:
-    branches:
-      - main
-
   # Trigger after CI completes
   workflow_run:
     workflows: ["CI Pipeline"]
@@ -48,7 +43,6 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       image_tag: ${{ steps.set-tag.outputs.tag }}
@@ -58,6 +52,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "workflow_run" ]; then
+            echo "tag=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
