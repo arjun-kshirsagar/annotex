@@ -5,7 +5,8 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from pathlib import Path
+
+import anyio
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -228,8 +229,8 @@ class GoogleVisionOCR(OCRProvider):
 
     async def extract_text(self, file_path: str) -> OCRResult:
         """Extract text from a PDF or image file using Google Vision."""
-        path = Path(file_path)
-        data = path.read_bytes()
+        path = anyio.Path(file_path)
+        data = await path.read_bytes()
         return await self.extract_text_from_bytes(data, path.name)
 
     async def extract_text_from_bytes(self, data: bytes, filename: str) -> OCRResult:

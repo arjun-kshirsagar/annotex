@@ -1,7 +1,7 @@
 """Semantic similarity evaluation engine."""
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -12,7 +12,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     """Verdict for an evaluated answer."""
 
     CORRECT = "correct"

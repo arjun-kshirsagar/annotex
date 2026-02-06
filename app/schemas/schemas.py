@@ -2,12 +2,12 @@
 
 import uuid
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     """Verdict for an evaluated answer segment."""
 
     CORRECT = "correct"
@@ -15,7 +15,7 @@ class Verdict(str, Enum):
     INCORRECT = "incorrect"
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Status of an evaluation job."""
 
     QUEUED = "queued"

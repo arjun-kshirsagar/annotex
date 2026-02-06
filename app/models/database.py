@@ -23,7 +23,7 @@ from sqlalchemy.sql import func
 from app.db.base import Base
 
 
-class JobStatus(str, enum.Enum):
+class JobStatus(enum.StrEnum):
     """Status of an evaluation job."""
 
     QUEUED = "queued"
@@ -32,7 +32,7 @@ class JobStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class Verdict(str, enum.Enum):
+class Verdict(enum.StrEnum):
     """Verdict for an evaluated answer segment."""
 
     CORRECT = "correct"
